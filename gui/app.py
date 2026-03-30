@@ -1,167 +1,128 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 from services import manager
 import datetime
 
-# Main GUI Class
 class SubscriptionApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Subscription Tracker")  # Window title
-        self.root.geometry("550x650")  # Window size
-        self.root.configure(bg="#f0f2f5")  # Background color
+        self.root.title("Subscription Tracker")
+        self.root.geometry("600x650")
+        self.root.configure(bg="#eef2f7")
 
-        self.build_ui()  # Build UI components
-        self.refresh_list()  # Load existing data
-        self.upcoming_bills_alert()  # Show upcoming bills
+        self.style = ttk.Style()
+        self.style.theme_use("clam")
 
-    # ---------- Build UI ----------
+        self.build_ui()
+        self.refresh_list()
+        self.upcoming_bills_alert()
+
     def build_ui(self):
-        # App title label
-        tk.Label(self.root, text="💳 Subscription Tracker",
-                 font=("Helvetica", 20, "bold"),
-                 bg="#f0f2f5", fg="#333").pack(pady=10)
+        title = tk.Label(self.root, text="💳 Subscription Tracker",
+                         font=("Segoe UI", 22, "bold"),
+                         bg="#eef2f7", fg="#222")
+        title.pack(pady=15)
 
-        # Input section
-        frame = tk.Frame(self.root, bg="#f0f2f5", padx=10, pady=10)
-        frame.pack(fill="x")
+        card = tk.Frame(self.root, bg="white", bd=0, relief="flat")
+        card.pack(padx=15, pady=10, fill="x")
 
-        # Name input
-        tk.Label(frame, text="Name", bg="#f0f2f5").grid(row=0, column=0)
-        self.entry_name = tk.Entry(frame)
-        self.entry_name.grid(row=0, column=1)
+        tk.Label(card, text="Name", bg="white").grid(row=0, column=0, pady=5)
+        self.entry_name = ttk.Entry(card)
+        self.entry_name.grid(row=0, column=1, pady=5, padx=5)
 
-        # Price input
-        tk.Label(frame, text="Price", bg="#f0f2f5").grid(row=1, column=0)
-        self.entry_price = tk.Entry(frame)
-        self.entry_price.grid(row=1, column=1)
+        tk.Label(card, text="Price", bg="white").grid(row=1, column=0, pady=5)
+        self.entry_price = ttk.Entry(card)
+        self.entry_price.grid(row=1, column=1, pady=5, padx=5)
 
-        # Billing days input
-        tk.Label(frame, text="Billing Days", bg="#f0f2f5").grid(row=2, column=0)
-        self.entry_days = tk.Entry(frame)
-        self.entry_days.grid(row=2, column=1)
+        tk.Label(card, text="Billing Days", bg="white").grid(row=2, column=0, pady=5)
+        self.entry_days = ttk.Entry(card)
+        self.entry_days.grid(row=2, column=1, pady=5, padx=5)
 
-        # Buttons section
-        btn_frame = tk.Frame(self.root, bg="#f0f2f5")
-        btn_frame.pack()
+        btn_frame = tk.Frame(self.root, bg="#eef2f7")
+        btn_frame.pack(pady=10)
 
-        # Add new subscription
-        tk.Button(btn_frame, text="Add", command=self.add).grid(row=0, column=0)
+        ttk.Button(btn_frame, text="Add", command=self.add).grid(row=0, column=0, padx=5)
+        ttk.Button(btn_frame, text="Delete", command=self.delete).grid(row=0, column=1, padx=5)
+        ttk.Button(btn_frame, text="Refresh", command=self.refresh_list).grid(row=0, column=2, padx=5)
 
-        # Delete selected subscription
-        tk.Button(btn_frame, text="Delete", command=self.delete).grid(row=0, column=1)
+        ttk.Button(btn_frame, text="Monthly", command=self.show_monthly).grid(row=1, column=0, pady=5)
+        ttk.Button(btn_frame, text="Yearly", command=self.show_yearly).grid(row=1, column=1, pady=5)
 
-        # Refresh list
-        tk.Button(btn_frame, text="Refresh", command=self.refresh_list).grid(row=0, column=2)
+        search_frame = tk.Frame(self.root, bg="#eef2f7")
+        search_frame.pack(pady=5)
 
-        # Show monthly cost
-        tk.Button(btn_frame, text="Monthly Cost", command=self.show_monthly).grid(row=1, column=0)
+        self.entry_search = ttk.Entry(search_frame, width=25)
+        self.entry_search.grid(row=0, column=0, padx=5)
 
-        # Show yearly cost
-        tk.Button(btn_frame, text="Yearly Cost", command=self.show_yearly).grid(row=1, column=1)
+        ttk.Button(search_frame, text="Search", command=self.search).grid(row=0, column=1, padx=5)
+        ttk.Button(search_frame, text="Clear", command=self.refresh_list).grid(row=0, column=2, padx=5)
 
-        # Search section
-        search_frame = tk.Frame(self.root, bg="#f0f2f5")
-        search_frame.pack()
+        self.tree = ttk.Treeview(self.root, columns=("Name", "Price", "Next"), show="headings")
+        self.tree.heading("Name", text="Name")
+        self.tree.heading("Price", text="Price")
+        self.tree.heading("Next", text="Next Billing")
+        self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-        self.entry_search = tk.Entry(search_frame)
-        self.entry_search.grid(row=0, column=0)
-
-        # Search button
-        tk.Button(search_frame, text="Search", command=self.search).grid(row=0, column=1)
-
-        # Clear search results
-        tk.Button(search_frame, text="Clear", command=self.refresh_list).grid(row=0, column=2)
-
-        # Listbox to display subscriptions
-        list_frame = tk.Frame(self.root)
-        list_frame.pack(fill="both", expand=True)
-
-        self.listbox = tk.Listbox(list_frame)
-        self.listbox.pack(side="left", fill="both", expand=True)
-
-        # Scrollbar for listbox
-        scrollbar = tk.Scrollbar(list_frame)
-        scrollbar.pack(side="right", fill="y")
-        self.listbox.config(yscrollcommand=scrollbar.set)
-        scrollbar.config(command=self.listbox.yview)
-
-    # ---------- Refresh List ----------
     def refresh_list(self):
-        self.listbox.delete(0, tk.END)  # Clear list
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+
         today = datetime.date.today()
 
-        # Loop through subscriptions
         for sub in manager.get_all():
             next_date = datetime.datetime.strptime(sub["next_billing"], "%Y-%m-%d").date()
 
-            # Highlight upcoming bills (within 7 days)
+            tag = ""
             if 0 <= (next_date - today).days <= 7:
-                display_text = f"⚠️ {sub['name']} | ₹{sub['price']} | {sub['next_billing']}"
-            else:
-                display_text = f"{sub['name']} | ₹{sub['price']} | {sub['next_billing']}"
+                tag = "warning"
 
-            self.listbox.insert(tk.END, display_text)
+            self.tree.insert("", "end", values=(sub['name'], f"₹{sub['price']}", sub['next_billing']), tags=(tag,))
 
-        self.entry_search.delete(0, tk.END)  # Clear search box
+        self.tree.tag_configure("warning", background="#ffe5e5")
 
-    # Clear input fields
-    def clear_fields(self):
-        self.entry_name.delete(0, tk.END)
-        self.entry_price.delete(0, tk.END)
-        self.entry_days.delete(0, tk.END)
-
-    # Add subscription
     def add(self):
         try:
-            name = self.entry_name.get()
-            price = float(self.entry_price.get())
-            days = int(self.entry_days.get())
-
-            manager.add_subscription(name, price, days)
+            manager.add_subscription(
+                self.entry_name.get(),
+                float(self.entry_price.get()),
+                int(self.entry_days.get())
+            )
             self.refresh_list()
             self.clear_fields()
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # Delete selected subscription
     def delete(self):
         try:
-            index = self.listbox.curselection()[0]
+            selected = self.tree.selection()[0]
+            index = self.tree.index(selected)
             manager.delete_subscription(index)
             self.refresh_list()
         except:
             messagebox.showerror("Error", "Select item")
 
-    # Show monthly cost popup
     def show_monthly(self):
         total = manager.total_monthly_cost()
         messagebox.showinfo("Monthly Cost", f"₹{total:.2f}")
 
-    # Show yearly cost popup
     def show_yearly(self):
         total = manager.total_monthly_cost() * 12
         messagebox.showinfo("Yearly Cost", f"₹{total:.2f}")
 
-    # Search subscriptions
     def search(self):
-        keyword = self.entry_search.get()
-        results = manager.search_subscription(keyword)
+        results = manager.search_subscription(self.entry_search.get())
 
-        self.listbox.delete(0, tk.END)
+        for row in self.tree.get_children():
+            self.tree.delete(row)
 
-        today = datetime.date.today()
         for sub in results:
-            next_date = datetime.datetime.strptime(sub["next_billing"], "%Y-%m-%d").date()
+            self.tree.insert("", "end", values=(sub['name'], f"₹{sub['price']}", sub['next_billing']))
 
-            if 0 <= (next_date - today).days <= 7:
-                display_text = f"⚠️ {sub['name']} | ₹{sub['price']} | {sub['next_billing']}"
-            else:
-                display_text = f"{sub['name']} | ₹{sub['price']} | {sub['next_billing']}"
+    def clear_fields(self):
+        self.entry_name.delete(0, tk.END)
+        self.entry_price.delete(0, tk.END)
+        self.entry_days.delete(0, tk.END)
 
-            self.listbox.insert(tk.END, display_text)
-
-    # Show popup for upcoming bills
     def upcoming_bills_alert(self):
         today = datetime.date.today()
         upcoming = []
@@ -169,16 +130,13 @@ class SubscriptionApp:
         for sub in manager.get_all():
             next_date = datetime.datetime.strptime(sub["next_billing"], "%Y-%m-%d").date()
 
-            # Check if bill is within 7 days
             if 0 <= (next_date - today).days <= 7:
                 upcoming.append(f"{sub['name']} due on {next_date}")
 
-        # Show alert if any upcoming bills
         if upcoming:
             messagebox.showinfo("Upcoming Bills", "\n".join(upcoming))
 
 
-# Run directly (for testing)
 if __name__ == "__main__":
     root = tk.Tk()
     app = SubscriptionApp(root)
